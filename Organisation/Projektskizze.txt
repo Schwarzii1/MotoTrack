@@ -1,0 +1,39 @@
+Projektskizze
+
+Scope of Work:
+Arbeit nach agiler Methode Scrum
+Durch ein Arduino gesteuertes Gerät Beschleunigungs-, Gyroskopie- und GPS-Daten erfassen
+Übermittlung der Daten mittels Internet an einen Raspberry Pi, der die Daten in einer Datenbank sichert
+Grafische Weboberfläche für die Echtzeit - Darstellung der Daten
+Website von Raspberry Pi gehostet
+LCD-Display anbinden, um den Nutzer zu bestätigen, dass die Daten korrekt/inkorrekt übertragen werden
+Auswahl des WLANs und Passworteingabe zur Übertragung der Daten mithilfe des LCD-Displays
+Routen-Logger
+Wetter API-anbinden -> Wetterwarnungen
+Stromversorgung: Powerbank/Akku
+
+Risiken:
+Kein Budget
+Lieferengpässe Arduino
+Umgang mit mangelnder Netzabdeckung
+Inkorrektes versenden der Daten
+
+Projektziele:
+Produkt, dass allen Ansprüchen gerecht wird
+Wissenszuwachs (grafische Darstellung, Datenbanken, mobile Datenübertragung, C++, HTML, Elektronik, Projektmanagement)
+
+Stakeholder:
+Frank Penning - Scrum Master
+Tim Ludwig - Technical Engineer 
+Christian Straub - Software Engineer
+Philipp Loose - Data Analyst/Web-Designer
+Janik Schwarzenberger - Product Owner
+Kunden
+
+Budget:
+100 Euro
+
+
+
+
+
