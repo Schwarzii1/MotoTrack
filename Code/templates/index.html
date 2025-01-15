@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motor Data</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Motor Data</h1>
+    <div id="data">
+        <!-- Hier werden die Daten angezeigt -->
+        <p>Latitude: 0.0</p>
+        <p>Longitude: 0.0</p>
+        <p>Speed: 0.0</p>
+        <p>Acceleration (X): 0.0</p>
+        <p>Acceleration (Y): 0.0</p>
+        <p>Acceleration (Z): 0.0</p>
+        <p>Gyroscope (X): 0.0</p>
+        <p>Gyroscope (Y): 0.0</p>
+        <p>Gyroscope (Z): 0.0</p>
+    </div>
+
+    <script type="text/javascript">
+        // Stelle die Verbindung zum Server her
+        var socket = io.connect('http://135.236.212.233:5000');  // Beachte: Nutze den tatsächlichen Host
+
+        // Wenn neue Daten empfangen werden, aktualisiere die Anzeige
+        socket.on('new_data', function(data) {
+            console.log(data);  // Überprüfe, ob die Daten empfangen werden
+            var content = `
+                <p>Latitude: ${data.latitude}</p>
+                <p>Longitude: ${data.longitude}</p>
+                <p>Speed: ${data.speed} km/h</p>
+                <p>Acceleration (X): ${data.acceleration_x}</p>
+                <p>Acceleration (Y): ${data.acceleration_y}</p>
+                <p>Acceleration (Z): ${data.acceleration_z}</p>
+                <p>Gyroscope (X): ${data.gyroscope_x}</p>
+                <p>Gyroscope (Y): ${data.gyroscope_y}</p>
+                <p>Gyroscope (Z): ${data.gyroscope_z}</p>
+            `;
+            document.getElementById('data').innerHTML = content;
+        });
+    </script>
+</body>
+</html>
