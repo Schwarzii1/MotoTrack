@@ -19,7 +19,7 @@ const char* serverURL = "http://135.236.212.233:5000/data";
 
 void setup() {
   Serial.begin(115200);
-  gpsSerial.begin(9600, SERIAL_8N1, 13, 15); // RX, TX pins for GPS
+  gpsSerial.begin(9600, SERIAL_8N1, 3, 1); // RX, TX pins for GPS
 
   // Initialize MPU6050
   if (!mpu.begin()) {
