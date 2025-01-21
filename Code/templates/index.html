@@ -3,16 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Motor Data</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+    <title>Live Tracking Map with OpenStreetMap</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 500px; /* Höhe der Karte */
+            width: 100%; /* Breite der Karte */
+        }
+        #data {
+            margin-top: 20px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Motor Data</h1>
+    <h1>Live Tracking Map</h1>
+    <!-- Kartencontainer -->
+    <div id="map"></div>
+    <!-- Datenanzeige -->
     <div id="data">
-        <!-- Hier werden die Daten angezeigt -->
         <p>Latitude: 0.0</p>
         <p>Longitude: 0.0</p>
-        <p>Speed: 0.0</p>
+        <p>Speed: 0.0 km/h</p>
         <p>Acceleration (X): 0.0</p>
         <p>Acceleration (Y): 0.0</p>
         <p>Acceleration (Z): 0.0</p>
@@ -21,26 +33,94 @@
         <p>Gyroscope (Z): 0.0</p>
     </div>
 
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
     <script type="text/javascript">
-        // Stelle die Verbindung zum Server her
-        var socket = io.connect('http://135.236.212.233:5000');  // Beachte: Nutze den tatsächlichen Host
+        let map, marker;
+        let lastPosition = null;
+        let lastTime = null;
 
-        // Wenn neue Daten empfangen werden, aktualisiere die Anzeige
-        socket.on('new_data', function(data) {
-            console.log(data);  // Überprüfe, ob die Daten empfangen werden
-            var content = `
-                <p>Latitude: ${data.latitude}</p>
-                <p>Longitude: ${data.longitude}</p>
-                <p>Speed: ${data.speed} km/h</p>
-                <p>Acceleration (X): ${data.acceleration_x}</p>
-                <p>Acceleration (Y): ${data.acceleration_y}</p>
-                <p>Acceleration (Z): ${data.acceleration_z}</p>
-                <p>Gyroscope (X): ${data.gyroscope_x}</p>
-                <p>Gyroscope (Y): ${data.gyroscope_y}</p>
-                <p>Gyroscope (Z): ${data.gyroscope_z}</p>
-            `;
-            document.getElementById('data').innerHTML = content;
-        });
+        // Funktion zur Berechnung der Geschwindigkeit
+        function calculateSpeed(lat1, lon1, lat2, lon2, timeDiff) {
+            const R = 6371e3; // Erdradius in Metern
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            const distance = R * c; // Entfernung in Metern
+            const speed = (distance / timeDiff) * 3.6; // Geschwindigkeit in km/h
+            return speed.toFixed(2);
+        }
+
+        function initMap() {
+            // Initialisiere Leaflet-Karte mit Startposition (0,0)
+            map = L.map('map').setView([0, 0], 13);
+
+            // Füge OpenStreetMap-Kacheln hinzu
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Initialisiere den Marker
+            marker = L.marker([0, 0]).addTo(map);
+        }
+
+        window.onload = function() {
+            initMap();
+
+            // Verbindung zum Server herstellen
+            const socket = io.connect('http://135.236.212.233:5000');
+
+            socket.on('new_data', function(data) {
+                const currentTime = Date.now();
+                const latitude = data.latitude;
+                const longitude = data.longitude;
+
+                // Berechne Geschwindigkeit, wenn vorherige Position verfügbar ist
+                let speed = 0.0;
+                if (lastPosition && lastTime) {
+                    const timeDiff = (currentTime - lastTime) / 1000; // Zeitdifferenz in Sekunden
+                    speed = calculateSpeed(
+                        lastPosition.lat,
+                        lastPosition.lng,
+                        latitude,
+                        longitude,
+                        timeDiff
+                    );
+                }
+
+                // Aktualisiere Marker und Kartenansicht
+                const newPosition = [latitude, longitude];
+                marker.setLatLng(newPosition);
+                map.setView(newPosition, map.getZoom());
+
+                // Speichere aktuelle Position und Zeit
+                lastPosition = { lat: latitude, lng: longitude };
+                lastTime = currentTime;
+
+                // Zeige empfangene Daten an
+                const content = `
+                    <p>Latitude: ${latitude}</p>
+                    <p>Longitude: ${longitude}</p>
+                    <p>Speed: ${speed} km/h</p>
+                    <p>Acceleration (X): ${data.acceleration_x}</p>
+                    <p>Acceleration (Y): ${data.acceleration_y}</p>
+                    <p>Acceleration (Z): ${data.acceleration_z}</p>
+                    <p>Gyroscope (X): ${data.gyroscope_x}</p>
+                    <p>Gyroscope (Y): ${data.gyroscope_y}</p>
+                    <p>Gyroscope (Z): ${data.gyroscope_z}</p>
+                `;
+                document.getElementById('data').innerHTML = content;
+            });
+        };
     </script>
 </body>
 </html>
