@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Tracking Map with OpenStreetMap</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            padding: 20px;
+        }
+        #map {
+            height: 500px;
+            width: 80%;
+            margin: 20px auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            flex: 1;
+            max-width: 300px;
+        }
+        .card p {
+            font-size: 16px;
+            color: #333;
+            margin: 5px 0;
+        }
+        .button-container {
+            margin: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 5px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            max-width: 400px;
+            width: 100%;
+        }
+        .popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+        .popup button {
+            background-color: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Live Tracking Map</h1>
+    <div id="map"></div>
+    <div class="container">
+        <div class="card">
+            <h3>Position</h3>
+            <p><strong>Latitude:</strong> <span id="latitude">0.0</span></p>
+            <p><strong>Longitude:</strong> <span id="longitude">0.0</span></p>
+            <p><strong>Speed:</strong> <span id="speed">0.0</span> km/h</p>
+        </div>
+        <div class="card">
+            <h3>Acceleration</h3>
+            <p><strong>X:</strong> <span id="acc_x">0.0</span></p>
+            <p><strong>Y:</strong> <span id="acc_y">0.0</span></p>
+            <p><strong>Z:</strong> <span id="acc_z">0.0</span></p>
+        </div>
+        <div class="card">
+            <h3>Gyroscope</h3>
+            <p><strong>X:</strong> <span id="gyro_x">0.0</span></p>
+            <p><strong>Y:</strong> <span id="gyro_y">0.0</span></p>
+            <p><strong>Z:</strong> <span id="gyro_z">0.0</span></p>
+        </div>
+    </div>
+
+    <div class="button-container">
+        <button id="startBtn">Start Fahrt</button>
+        <button id="endBtn">Ende Fahrt</button>
+    </div>
+
+    <div class="popup-overlay" id="popup-overlay"></div>
+    <div class="popup" id="popup">
+        <h3>Fahrt Erfolgreich Abgeschlossen!</h3>
+        <p><strong>Strecke:</strong> <span id="distance">0.0</span> km</p>
+        <p><strong>Maximale Geschwindigkeit:</strong> <span id="maxSpeed">0.0</span> km/h</p>
+        <p><strong>Maximale Schräglage:</strong> <span id="maxLean">0.0</span> °</p>
+        <p><strong>Maximale Beschleunigung:</strong> <span id="maxAcceleration">0.0</span> m/s²</p>
+        <button onclick="closePopup()">Schließen</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+
+    <script>
+        let map, marker, polyline;
+        let lastPosition = null;
+        let tracking = false;
+        let route = [];
+        let speedData = [];
+        let maxSpeed = 0;
+        let maxLean = 0;
+        let maxAcceleration = 0;
+        let totalDistance = 0;
+
+        function getRandomValue(min, max) {
+            return (Math.random() * (max - min) + min).toFixed(2);
+        }
+
+        function getRandomSpeed() {
+            return getRandomValue(0, 100);
+        }
+
+        function getRandomLean() {
+            return getRandomValue(0, 45);
+        }
+
+        function getRandomAcceleration() {
+            return getRandomValue(0, 10);
+        }
+
+        function getRandomGyroAndAccel() {
+            return {
+                acc_x: getRandomValue(-10, 10),
+                acc_y: getRandomValue(-10, 10),
+                acc_z: getRandomValue(-10, 10),
+                gyro_x: getRandomValue(-5, 5),
+                gyro_y: getRandomValue(-5, 5),
+                gyro_z: getRandomValue(-5, 5)
+            };
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            const distance = R * c / 1000;
+            return distance.toFixed(2);
+        }
+
+        function initMap() {
+            map = L.map('map').setView([0, 0], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            marker = L.marker([0, 0]).addTo(map);
+            polyline = L.polyline([], {color: 'blue'}).addTo(map);
+        }
+
+        window.onload = function() {
+            initMap();
+
+            document.getElementById('startBtn').addEventListener('click', startTracking);
+            document.getElementById('endBtn').addEventListener('click', stopTracking);
+
+            setInterval(function() {
+                if (!tracking) return;
+
+                const latitude = getRandomValue(-90, 90);
+                const longitude = getRandomValue(-180, 180);
+                const speed = getRandomSpeed();
+                const lean = getRandomLean();
+                const acceleration = getRandomAcceleration();
+                const { acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z } = getRandomGyroAndAccel();
+
+                const newPosition = [latitude, longitude];
+                route.push(newPosition);
+
+                marker.setLatLng(newPosition);
+                map.setView(newPosition, map.getZoom());
+                polyline.addLatLng(newPosition);
+
+                document.getElementById('latitude').innerText = latitude;
+                document.getElementById('longitude').innerText = longitude;
+                document.getElementById('speed').innerText = speed;
+                document.getElementById('acc_x').innerText = acc_x;
+                document.getElementById('acc_y').innerText = acc_y;
+                document.getElementById('acc_z').innerText = acc_z;
+                document.getElementById('gyro_x').innerText = gyro_x;
+                document.getElementById('gyro_y').innerText = gyro_y;
+                document.getElementById('gyro_z').innerText = gyro_z;
+
+                if (lastPosition) {
+                    const distance = calculateDistance(lastPosition[0], lastPosition[1], latitude, longitude);
+                    totalDistance += parseFloat(distance);
+                    maxSpeed = Math.max(maxSpeed, speed);
+                    maxLean = Math.max(maxLean, lean);
+                    maxAcceleration = Math.max(maxAcceleration, acceleration);
+                }
+
+                lastPosition = newPosition;
+            }, 2000);
+        };
+
+        function startTracking() {
+            tracking = true;
+            route = [];
+            totalDistance = 0;
+            maxSpeed = 0;
+            maxLean = 0;
+            maxAcceleration = 0;
+            lastPosition = null;
+            polyline.setLatLngs([]);
+            marker.setLatLng([0, 0]);
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('endBtn').disabled = false;
+        }
+
+        function stopTracking() {
+            tracking = false;
+            document.getElementById('endBtn').disabled = true;
+            showPopup();
+        }
+
+        function showPopup() {
+            document.getElementById('distance').innerText = totalDistance.toFixed(2);
+            document.getElementById('maxSpeed').innerText = maxSpeed;
+            document.getElementById('maxLean').innerText = maxLean;
+            document.getElementById('maxAcceleration').innerText = maxAcceleration;
+
+            document.getElementById('popup-overlay').style.display = 'block';
+            document.getElementById('popup').style.display = 'block';
+        }
+
+        function closePopup() {
+            document.getElementById('popup-overlay').style.display = 'none';
+            document.getElementById('popup').style.display = 'none';
+            document.getElementById('startBtn').disabled = false;
+        }
+    </script>
+</body>
+</html>
