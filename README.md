@@ -20,21 +20,4 @@ MotoTrack ist eine Anwendung zur Visualisierung von Live-Sensordaten eines Motor
 - Flask oder FastAPI für das Backend.
 - Leaflet.js oder OpenLayers für die Kartenvisualisierung im Frontend.
 
-## Installation
-### Schritt 1: Einrichtung des Arduino Nano ESP32
-1. Installiere die Arduino IDE und lade die benötigten Bibliotheken:
-   - `WiFi.h` (für mobile Datenverbindung).
-   - HTTP-Client-Bibliothek (z. B. `HTTPClient` für REST-APIs).
-   - Bibliotheken für die verwendeten Sensoren.
 
-2. Lade den Code für die Datenerfassung und -übertragung auf den Arduino Nano ESP32 hoch. Der Code sollte die Sensordaten regelmäßig per HTTP POST an die Azure-API senden.
-
-### Schritt 2: Einrichtung der Azure-VM
-1. **Erstelle eine virtuelle Maschine:**
-   - Wähle eine Linux-Distribution (z. B. Ubuntu 22.04).
-   - Öffne die Ports für HTTP (80) in der Azure-Netzwerksicherheitsgruppe.
-
-2. **Installiere die benötigte Software:**
-   ```bash
-   sudo apt update
-   sudo apt install python3 python3-pip nginx
