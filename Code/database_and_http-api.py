@@ -1,6 +1,6 @@
 import sqlite3
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from datetime import datetime
 from flask_cors import CORS
 
@@ -148,6 +148,11 @@ def get_messpunkte(fahrt_id):
     ]
 
     return jsonify(messpunkte_list)
+
+# API-Route für die Webseite
+@app.route("/")
+def index():
+    return render_template("website.html")
 
 # Server starten
 if __name__ == "__main__":
