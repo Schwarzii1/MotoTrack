@@ -3,6 +3,7 @@ import os
 from flask import Flask, request, jsonify, render_template
 from datetime import datetime
 from flask_cors import CORS
+from threading import Thread
 
 # Datenbank-Datei
 DB_FILE = "fahrten.db"
@@ -10,6 +11,9 @@ DB_FILE = "fahrten.db"
 # Flask-App initialisieren
 app = Flask(__name__)
 CORS(app)  # Erlaubt API-Zugriffe von anderen Domains
+
+# Flask-App für Port 6000 initialisieren
+app_test = Flask(__name__)
 
 # Datenbank erstellen, falls nicht vorhanden
 def init_db():
@@ -149,12 +153,34 @@ def get_messpunkte(fahrt_id):
 
     return jsonify(messpunkte_list)
 
-# API-Route für die Webseite
+# API-Route für die Webseite (Port 5000)
 @app.route("/")
 def index():
     return render_template("website.html")
 
-# Server starten
-if __name__ == "__main__":
+# API-Route für die Tester-Webseite (Port 6000)
+@app_test.route("/")
+def tester():
+    return render_template("tester.html")
+
+# Funktion zum Starten des Servers auf zwei Ports
+def run_app():
     init_db()
+    # Start Flask-App auf Port 5000
     app.run(host="0.0.0.0", port=5000)
+    
+def run_app_test():
+    # Start Flask-App auf Port 6000
+    app_test.run(host="0.0.0.0", port=6000)
+
+# Starten des Servers auf zwei Ports gleichzeitig (in separaten Threads)
+if __name__ == "__main__":
+    # Starte beide Flask-Server in unterschiedlichen Threads
+    thread1 = Thread(target=run_app)
+    thread2 = Thread(target=run_app_test)
+
+    thread1.start()
+    thread2.start()
+
+    thread1.join()
+    thread2.join()
