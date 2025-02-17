@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fahrten und Messpunkte</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .data-container {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fahrten und Messpunkte</h1>
+        
+        <!-- Dropdown für Auswahl der Fahrt -->
+        <label for="fahrtSelect">Wählen Sie eine Fahrt:</label>
+        <select id="fahrtSelect">
+            <option value="">Bitte wählen</option>
+        </select>
+
+        <div id="map"></div>
+
+        <div class="data-container">
+            <h3>Messpunktdaten:</h3>
+            <p><strong>Zeitpunkt:</strong> <span id="zeitpunkt"></span></p>
+            <p><strong>Beschleunigung:</strong> <span id="beschleunigung"></span> m/s²</p>
+            <p><strong>Neigung X:</strong> <span id="neigungX"></span></p>
+            <p><strong>Neigung Y:</strong> <span id="neigungY"></span></p>
+            <p><strong>Neigung Z:</strong> <span id="neigungZ"></span></p>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <script>
+        const map = L.map('map').setView([51.505, -0.09], 13); // Startkoordinaten
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        let currentFahrtID = null;
+        let currentMesspunkte = [];
+
+        // Funktion zum Abrufen der Fahrten
+        function fetchFahrten() {
+            axios.get('https://your-api-endpoint.com/fahrten') // API-Endpunkt für Fahrtenliste
+                .then(response => {
+                    const fahrtSelect = document.getElementById('fahrtSelect');
+                    response.data.forEach(fahrt => {
+                        const option = document.createElement('option');
+                        option.value = fahrt.FahrtID;
+                        option.textContent = fahrt.FahrtName;
+                        fahrtSelect.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Fehler beim Abrufen der Fahrten:', error);
+                });
+        }
+
+        // Funktion zum Abrufen der Messpunkte für eine Fahrt
+        function fetchMesspunkte(fahrtID, after) {
+            axios.get(`https://your-api-endpoint.com/get_messpunkte/${fahrtID}?after=${after}`)
+                .then(response => {
+                    currentMesspunkte = response.data;
+                    updateMap();
+                    updateMesspunktData(currentMesspunkte[currentMesspunkte.length - 1]); // Standardmäßig den letzten Messpunkt anzeigen
+                })
+                .catch(error => {
+                    console.error('Fehler beim Abrufen der Messpunkte:', error);
+                });
+        }
+
+        // Funktion zum Aktualisieren der Karte
+        function updateMap() {
+            // Leeren der Karte
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+                if (layer instanceof L.Polyline) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            let latlngs = [];
+
+            currentMesspunkte.forEach(messpunkt => {
+                const { Längengrad, Breitengrad } = messpunkt;
+                const latlng = [Breitengrad, Längengrad];
+                latlngs.push(latlng);
+
+                // Markierung für Messpunkt
+                L.marker(latlng)
+                    .addTo(map)
+                    .on('click', () => updateMesspunktData(messpunkt));
+            });
+
+            // Linie zwischen Messpunkten
+            if (latlngs.length > 1) {
+                L.polyline(latlngs, { color: 'blue' }).addTo(map);
+            }
+
+            // Karte auf den letzten Messpunkt zentrieren
+            if (latlngs.length > 0) {
+                map.setView(latlngs[latlngs.length - 1], 13);
+            }
+        }
+
+        // Funktion zum Aktualisieren der Messpunktdaten
+        function updateMesspunktData(messpunkt) {
+            document.getElementById('zeitpunkt').textContent = messpunkt.Zeitpunkt;
+            document.getElementById('beschleunigung').textContent = messpunkt.Beschleunigung;
+            document.getElementById('neigungX').textContent = messpunkt.NeigungX;
+            document.getElementById('neigungY').textContent = messpunkt.NeigungY;
+            document.getElementById('neigungZ').textContent = messpunkt.NeigungZ;
+        }
+
+        // Event Listener für die Auswahl einer Fahrt
+        document.getElementById('fahrtSelect').addEventListener('change', (event) => {
+            const fahrtID = event.target.value;
+            if (fahrtID) {
+                currentFahrtID = fahrtID;
+                fetchMesspunkte(fahrtID, '2025-02-14 00:00:00'); // Setze einen Startzeitpunkt
+            }
+        });
+
+        // Initialisiere die Fahrten
+        fetchFahrten();
+    </script>
+</body>
+</html>
