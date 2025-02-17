@@ -175,12 +175,12 @@ def run_app_test():
 
 # Starten des Servers auf zwei Ports gleichzeitig (in separaten Threads)
 if __name__ == "__main__":
-    # Starte beide Flask-Server in unterschiedlichen Threads
+    init_db()
+
+    # Starte den Server auf Port 5000 (weiterhin im Thread)
     thread1 = Thread(target=run_app)
-    thread2 = Thread(target=run_app_test)
-
     thread1.start()
-    thread2.start()
 
-    thread1.join()
-    thread2.join()
+    # Starte den Server auf Port 6000 im Vordergrund
+    app_test.run(host="0.0.0.0", port=6000)
+
