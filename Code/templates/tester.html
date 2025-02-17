@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fahrt-Tracker</title>
+    <script>
+        let fahrtID = null;
+        let messpunktInterval = null;
+
+        async function neueFahrt() {
+            const fahrtName = document.getElementById("fahrtName").value;
+            if (!fahrtName) {
+                alert("Bitte einen Fahrtnamen eingeben!");
+                return;
+            }
+
+            const response = await fetch("http://135.236.212.233:5000/add_fahrt", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ "FahrtName": fahrtName })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                fahrtID = data.FahrtID;
+                alert(`Fahrt "${fahrtName}" gestartet! ID: ${fahrtID}`);
+                starteMesspunkte();
+            } else {
+                alert("Fehler beim Erstellen der Fahrt!");
+            }
+        }
+
+        function starteMesspunkte() {
+            messpunktInterval = setInterval(async () => {
+                if (!fahrtID) return;
+
+                const jetzt = new Date().toISOString().slice(0, 19).replace("T", " ");
+                const beschleunigung = (Math.random() * 10).toFixed(2);
+                const längengrad = (52.0 + Math.random()).toFixed(6);
+                const breitengrad = (13.0 + Math.random()).toFixed(6);
+                const neigungX = (Math.random() * 2 - 1).toFixed(2);
+                const neigungY = (Math.random() * 2 - 1).toFixed(2);
+                const neigungZ = (Math.random() * 2 - 1).toFixed(2);
+                const beschlX = (Math.random() * 2 - 1).toFixed(2);
+                const beschlY = (Math.random() * 2 - 1).toFixed(2);
+                const beschlZ = (Math.random() * 2 - 1).toFixed(2);
+
+                await fetch("http://135.236.212.233:5000/add_messpunkt", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        "Zeitpunkt": jetzt,
+                        "Beschleunigung": parseFloat(beschleunigung),
+                        "FahrtID": fahrtID,
+                        "Längengrad": parseFloat(längengrad),
+                        "Breitengrad": parseFloat(breitengrad),
+                        "NeigungX": parseFloat(neigungX),
+                        "NeigungY": parseFloat(neigungY),
+                        "NeigungZ": parseFloat(neigungZ),
+                        "BeschlX": parseFloat(beschlX),
+                        "BeschlY": parseFloat(beschlY),
+                        "BeschlZ": parseFloat(beschlZ)
+                    })
+                });
+            }, 1000);
+        }
+
+        function stoppeFahrt() {
+            if (messpunktInterval) {
+                clearInterval(messpunktInterval);
+                messpunktInterval = null;
+                alert("Fahrt gestoppt!");
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Fahrt-Tracker</h1>
+    <input type="text" id="fahrtName" placeholder="Fahrtname eingeben">
+    <button onclick="neueFahrt()">Neue Fahrt</button>
+    <button onclick="stoppeFahrt()">Fahrt beenden</button>
+</body>
+</html>
