@@ -20,4 +20,7 @@ MotoTrack ist eine Anwendung zur Visualisierung von Live-Sensordaten eines Motor
 - Flask oder FastAPI für das Backend.
 - Leaflet.js oder OpenLayers für die Kartenvisualisierung im Frontend.
 
+Zum starten der Website: sudo python3 database_and_http-api.py --host=0.0.0.0 --port=80
+
+
 
