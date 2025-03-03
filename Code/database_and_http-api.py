@@ -174,7 +174,7 @@ def get_messpunkte(fahrt_id):
 # API-Route für die Webseite
 @app.route("/")
 def index():
-    return render_template("website.html")
+    return render_template("index.html")
 
 # Server starten
 if __name__ == "__main__":
