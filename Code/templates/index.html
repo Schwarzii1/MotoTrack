@@ -1,125 +1,180 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Tracking Map with OpenStreetMap</title>
-    <!-- Leaflet CSS -->
+    <title>Live Tracking Map mit OpenStreetMap</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        #map {
-            height: 500px; /* Höhe der Karte */
-            width: 100%; /* Breite der Karte */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            text-align: center;
         }
-        #data {
-            margin-top: 20px;
+        h1 {
+            color: #333;
+            padding: 20px;
+        }
+        #map {
+            height: 500px;
+            width: 80%;
+            margin: 20px auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            flex: 1;
+            max-width: 300px;
+        }
+        .card p {
+            font-size: 16px;
+            color: #333;
+            margin: 5px 0;
+        }
+        .button-container {
+            margin: 20px;
+        }
+        button, select {
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 5px;
+            margin: 5px;
+        }
+        button:hover, select:hover {
+            background-color: #45a049;
         }
     </style>
 </head>
 <body>
     <h1>Live Tracking Map</h1>
-    <!-- Kartencontainer -->
+
+    <label for="fahrtSelect">Wähle eine Fahrt:</label>
+    <select id="fahrtSelect">
+        <option value="">Lade Fahrten...</option>
+    </select>
+
     <div id="map"></div>
-    <!-- Datenanzeige -->
-    <div id="data">
-        <p>Latitude: 0.0</p>
-        <p>Longitude: 0.0</p>
-        <p>Speed: 0.0 km/h</p>
-        <p>Acceleration (X): 0.0</p>
-        <p>Acceleration (Y): 0.0</p>
-        <p>Acceleration (Z): 0.0</p>
-        <p>Gyroscope (X): 0.0</p>
-        <p>Gyroscope (Y): 0.0</p>
-        <p>Gyroscope (Z): 0.0</p>
+
+    <div class="container">
+        <div class="card">
+            <h3>Position</h3>
+            <p><strong>Latitude:</strong> <span id="latitude">0.0</span></p>
+            <p><strong>Longitude:</strong> <span id="longitude">0.0</span></p>
+        </div>
+        <div class="card">
+            <h3>Beschleunigung</h3>
+            <p><strong>X:</strong> <span id="acc_x">0.0</span></p>
+            <p><strong>Y:</strong> <span id="acc_y">0.0</span></p>
+            <p><strong>Z:</strong> <span id="acc_z">0.0</span></p>
+        </div>
+        <div class="card">
+            <h3>Neigung</h3>
+            <p><strong>X:</strong> <span id="gyro_x">0.0</span></p>
+            <p><strong>Y:</strong> <span id="gyro_y">0.0</span></p>
+            <p><strong>Z:</strong> <span id="gyro_z">0.0</span></p>
+        </div>
     </div>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
-    <script type="text/javascript">
-        let map, marker;
-        let lastPosition = null;
-        let lastTime = null;
+    <script>
+        let map, marker, polyline;
+        let currentFahrtID = null;
+        let lastTimestamp = null;
 
-        // Funktion zur Berechnung der Geschwindigkeit
-        function calculateSpeed(lat1, lon1, lat2, lon2, timeDiff) {
-            const R = 6371e3; // Erdradius in Metern
-            const φ1 = lat1 * Math.PI / 180;
-            const φ2 = lat2 * Math.PI / 180;
-            const Δφ = (lat2 - lat1) * Math.PI / 180;
-            const Δλ = (lon2 - lon1) * Math.PI / 180;
+        async function fetchFahrten() {
+            try {
+                const response = await fetch("http://135.236.212.233:5000/get_fahrten");
+                const fahrten = await response.json();
+                const select = document.getElementById("fahrtSelect");
+                select.innerHTML = `<option value="">Bitte eine Fahrt auswählen</option>`;
+                fahrten.forEach(fahrt => {
+                    const option = document.createElement("option");
+                    option.value = fahrt.FahrtID;
+                    option.textContent = fahrt.FahrtName;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error("Fehler beim Abrufen der Fahrten:", error);
+            }
+        }
 
-            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                      Math.cos(φ1) * Math.cos(φ2) *
-                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        async function fetchMesspunkte() {
+            if (!currentFahrtID) return;
+            let url = `http://135.236.212.233:5000/get_messpunkte/${currentFahrtID}`;
+            if (lastTimestamp) {
+                url += `?after=${encodeURIComponent(lastTimestamp)}`;
+            }
+            
+            try {
+                const response = await fetch(url);
+                const messpunkte = await response.json();
+                if (messpunkte.length > 0) {
+                    updateMap(messpunkte);
+                    lastTimestamp = messpunkte[messpunkte.length - 1].Zeitpunkt;
+                }
+            } catch (error) {
+                console.error("Fehler beim Abrufen der Messpunkte:", error);
+            }
+        }
 
-            const distance = R * c; // Entfernung in Metern
-            const speed = (distance / timeDiff) * 3.6; // Geschwindigkeit in km/h
-            return speed.toFixed(2);
+        function updateMap(messpunkte) {
+            messpunkte.forEach(messpunkt => {
+                if (messpunkt.Breitengrad && messpunkt.Längengrad) {
+                    const latlng = [messpunkt.Breitengrad, messpunkt.Längengrad];
+                    polyline.addLatLng(latlng);
+                    marker.setLatLng(latlng);
+                    map.setView(latlng, 13);
+                    
+                    document.getElementById("latitude").textContent = messpunkt.Breitengrad.toFixed(6);
+                    document.getElementById("longitude").textContent = messpunkt.Längengrad.toFixed(6);
+                    document.getElementById("acc_x").textContent = messpunkt.BeschlX || "0.0";
+                    document.getElementById("acc_y").textContent = messpunkt.BeschlY || "0.0";
+                    document.getElementById("acc_z").textContent = messpunkt.BeschlZ || "0.0";
+                    document.getElementById("gyro_x").textContent = messpunkt.NeigungX || "0.0";
+                    document.getElementById("gyro_y").textContent = messpunkt.NeigungY || "0.0";
+                    document.getElementById("gyro_z").textContent = messpunkt.NeigungZ || "0.0";
+                }
+            });
         }
 
         function initMap() {
-            // Initialisiere Leaflet-Karte mit Startposition (0,0)
-            map = L.map('map').setView([0, 0], 13);
-
-            // Füge OpenStreetMap-Kacheln hinzu
+            map = L.map('map').setView([48.7758, 9.1829], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
-
-            // Initialisiere den Marker
-            marker = L.marker([0, 0]).addTo(map);
+            
+            marker = L.marker([48.7758, 9.1829]).addTo(map);
+            polyline = L.polyline([], { color: 'blue' }).addTo(map);
         }
+
+        document.getElementById("fahrtSelect").addEventListener("change", function() {
+            currentFahrtID = this.value;
+            lastTimestamp = null;
+            polyline.setLatLngs([]);
+        });
 
         window.onload = function() {
             initMap();
-
-            // Verbindung zum Server herstellen
-            const socket = io.connect('http://135.236.212.233:5000');
-
-            socket.on('new_data', function(data) {
-                const currentTime = Date.now();
-                const latitude = data.latitude;
-                const longitude = data.longitude;
-
-                // Berechne Geschwindigkeit, wenn vorherige Position verfügbar ist
-                let speed = 0.0;
-                if (lastPosition && lastTime) {
-                    const timeDiff = (currentTime - lastTime) / 1000; // Zeitdifferenz in Sekunden
-                    speed = calculateSpeed(
-                        lastPosition.lat,
-                        lastPosition.lng,
-                        latitude,
-                        longitude,
-                        timeDiff
-                    );
-                }
-
-                // Aktualisiere Marker und Kartenansicht
-                const newPosition = [latitude, longitude];
-                marker.setLatLng(newPosition);
-                map.setView(newPosition, map.getZoom());
-
-                // Speichere aktuelle Position und Zeit
-                lastPosition = { lat: latitude, lng: longitude };
-                lastTime = currentTime;
-
-                // Zeige empfangene Daten an
-                const content = `
-                    <p>Latitude: ${latitude}</p>
-                    <p>Longitude: ${longitude}</p>
-                    <p>Speed: ${speed} km/h</p>
-                    <p>Acceleration (X): ${data.acceleration_x}</p>
-                    <p>Acceleration (Y): ${data.acceleration_y}</p>
-                    <p>Acceleration (Z): ${data.acceleration_z}</p>
-                    <p>Gyroscope (X): ${data.gyroscope_x}</p>
-                    <p>Gyroscope (Y): ${data.gyroscope_y}</p>
-                    <p>Gyroscope (Z): ${data.gyroscope_z}</p>
-                `;
-                document.getElementById('data').innerHTML = content;
-            });
+            fetchFahrten();
+            setInterval(fetchMesspunkte, 1000);
         };
     </script>
 </body>
