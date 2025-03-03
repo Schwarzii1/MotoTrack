@@ -100,7 +100,7 @@
 
         async function fetchFahrten() {
             try {
-                const response = await fetch("http://135.236.212.233:5000/get_fahrten");
+                const response = await fetch("http://135.236.212.233:80/get_fahrten");
                 const fahrten = await response.json();
                 const select = document.getElementById("fahrtSelect");
                 select.innerHTML = `<option value="">Bitte eine Fahrt auswählen</option>`;
@@ -117,7 +117,7 @@
 
         async function fetchMesspunkte() {
             if (!currentFahrtID) return;
-            let url = `http://135.236.212.233:5000/get_messpunkte/${currentFahrtID}`;
+            let url = `http://135.236.212.233:80/get_messpunkte/${currentFahrtID}`;
             if (lastTimestamp) {
                 url += `?after=${encodeURIComponent(lastTimestamp)}`;
             }
