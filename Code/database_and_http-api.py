@@ -105,11 +105,12 @@ def add_messpunkt():
 @app.route('/get_fahrten', methods=['GET'])
 def get_fahrten():
     # Verbindung zur Datenbank herstellen
-    conn = get_db_connection()
-
-    # Abfrage, um alle Fahrten zu erhalten
-    fahrten_sql = 'SELECT id, name FROM fahrten'
-    fahrten = conn.execute(fahrten_sql).fetchall()
+    
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT FahrtID, FahrtName FROM Fahrt')
+    fahrten = cursor.fetchall()
 
     # Schließe die Verbindung zur Datenbank
     conn.close()
@@ -118,8 +119,8 @@ def get_fahrten():
     fahrten_list = []
     for row in fahrten:
         fahrten_list.append({
-            'FahrtID': row['id'],
-            'FahrtName': row['name']
+            'FahrtID': row[0],  # Indexbasierter Zugriff
+            'FahrtName': row[1]
         })
 
     return jsonify(fahrten_list)
