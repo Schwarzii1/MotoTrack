@@ -16,7 +16,7 @@ def neue_fahrt():
         return
 
     # HTTP POST Anfrage, um eine neue Fahrt zu starten
-    response = requests.post("http://135.236.212.233:5000/add_fahrt", json={"FahrtName": fahrt_name})
+    response = requests.post("http://135.236.212.233:80/add_fahrt", json={"FahrtName": fahrt_name})
 
     if response.ok:
         data = response.json()
@@ -47,7 +47,7 @@ def starte_messpunkte():
 
         # HTTP POST Anfrage, um einen Messpunkt zu senden
         response = requests.post(
-            "http://135.236.212.233:5000/add_messpunkt",
+            "http://135.236.212.233:80/add_messpunkt",
             json={
                 "Zeitpunkt": jetzt,
                 "Beschleunigung": beschleunigung,
