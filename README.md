@@ -20,7 +20,9 @@ MotoTrack ist eine Anwendung zur Visualisierung von Live-Sensordaten eines Motor
 - Flask oder FastAPI für das Backend.
 - Leaflet.js oder OpenLayers für die Kartenvisualisierung im Frontend.
 
-Zum starten der Website: sudo python3 database_and_http-api.py --host=0.0.0.0 --port=80
+Zum starten der Website: sudo python3 database_and_http-api.py 
+
+Zur Vereinfachung der Abgabe haben wir ein Python-Skript erstellt, um die Anfragen des Arduino Nano ESP32 zu simulieren. Um das Skript auszuführen, verwenden Sie den folgenden Befehl: python3 send_data.py. Anschließend können Sie eine neue Fahrt erstellen, die in Echtzeit auf der Website mototrack.de abgebildet wird. Zur Veranschaulichung haben wir ein Demo-Video (demo.mp4) eingebunden, das zeigt, wie der Prozess in der Praxis funktioniert.
 
 
 
