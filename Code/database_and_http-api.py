@@ -102,6 +102,29 @@ def add_messpunkt():
 
     return jsonify({"message": "Messpunkt hinzugefügt", "MesspunktID": messpunkt_id})
 
+@app.route('/get_fahrten', methods=['GET'])
+def get_fahrten():
+    # Verbindung zur Datenbank herstellen
+    
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT FahrtID, FahrtName FROM Fahrt')
+    fahrten = cursor.fetchall()
+
+    # Schließe die Verbindung zur Datenbank
+    conn.close()
+
+    # Liste der Fahrten als JSON zurückgeben
+    fahrten_list = []
+    for row in fahrten:
+        fahrten_list.append({
+            'FahrtID': row[0],  # Indexbasierter Zugriff
+            'FahrtName': row[1]
+        })
+
+    return jsonify(fahrten_list)
+
 # API-Route zum Abrufen von Messpunkten einer bestimmten Fahrt nach einer Uhrzeit
 @app.route("/get_messpunkte/<int:fahrt_id>", methods=["GET"])
 def get_messpunkte(fahrt_id):
@@ -152,7 +175,7 @@ def get_messpunkte(fahrt_id):
 # API-Route für die Webseite
 @app.route("/")
 def index():
-    return render_template("website.html")
+    return render_template("index.html")
 
 # Server starten
 if __name__ == "__main__":
