@@ -15,7 +15,7 @@ const char* ssid = "iPhoneJanik";
 const char* password = "12345678AA";
 
 // Azure server URL
-const char* serverURL = "http://135.236.212.233:5000/data";
+const char* serverURL = "http://135.236.212.233:80/data";
 
 void setup() {
   Serial.begin(115200);
