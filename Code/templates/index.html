@@ -7,58 +7,119 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
             margin: 0;
             padding: 0;
-            text-align: center;
-        }
-        h1 {
             color: #333;
-            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
+
+        h1 {
+            color: #4CAF50;
+            font-size: 2rem;
+            padding: 30px 0;
+            text-align: center;
+            margin: 0;
+        }
+
         #map {
             height: 500px;
-            width: 80%;
+            width: 90%;
+            max-width: 1200px;
             margin: 20px auto;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            box-shadow: 0 6px 15px rgba(0, 255, 0, 0.3);
         }
+
         .container {
-            width: 80%;
-            margin: auto;
             display: flex;
-            justify-content: center;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin-top: 30px;
             gap: 20px;
+            width: 90%;
+            max-width: 1200px;
         }
+
         .card {
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
             flex: 1;
-            max-width: 300px;
+            min-width: 250px;
+            max-width: 320px;
+            margin: 10px;
         }
+
+        .card h3 {
+            font-size: 1.5rem;
+            color: #4CAF50;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
         .card p {
-            font-size: 16px;
-            color: #333;
+            font-size: 1rem;
+            color: #666;
             margin: 5px 0;
         }
+
         .button-container {
-            margin: 20px;
+            margin: 30px 0;
         }
-        button, select {
-            padding: 10px;
+
+        select, button {
+            padding: 12px;
             font-size: 16px;
             cursor: pointer;
             border: none;
             background-color: #4CAF50;
             color: white;
-            border-radius: 5px;
+            border-radius: 6px;
             margin: 5px;
+            transition: background-color 0.3s;
         }
-        button:hover, select:hover {
+
+        select:hover, button:hover {
             background-color: #45a049;
+        }
+
+        label {
+            font-size: 18px;
+            margin-top: 20px;
+            color: #333;
+        }
+
+        /* Styling für den Impressum-Teil */
+        .impressum-container {
+            background-color: #fff;
+            padding: 30px;
+            width: 90%;
+            max-width: 1000px;
+            margin: 30px auto;
+            border-radius: 12px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+            text-align: left;
+        }
+
+        .impressum-container h2 {
+            color: #4CAF50;
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+        }
+
+        .impressum-container p {
+            font-size: 1rem;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .impressum-container strong {
+            color: #333;
         }
     </style>
 </head>
@@ -177,23 +238,24 @@
             setInterval(fetchMesspunkte, 1000);
         };
     </script>
-       <h1>Impressum</h1>
-     
-       <p><strong>Angaben gemäß § 5 TMG</strong></p>
-       <p>Janik Schwarzenberger, Christian Straub, Tim Ludwig, Frank Penning<br>
-          Fallenbrunnen 2<br>
-          88045 Friedrichshafen<br>
-       </p>
-       
-       <p><strong>Kontakt</strong></p>
-       <p>E-Mail: schwarzenberge-it23@it.dhbw-ravensburg.de<br>
-          
-       
-       <p><strong>Haftungsausschluss</strong></p>
-       <p>Dieses Studentenprojekt dient ausschließlich zu Lernzwecken. Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links. Für den Inhalt der verlinkten Seiten sind ausschließlich deren Betreiber verantwortlich.</p>
-       
-       <p><strong>Hinweis</strong></p>
-       <p>Da es sich um ein nicht-kommerzielles Studentenprojekt handelt, besteht keine Pflicht zur Angabe eines vollständigen Impressums nach § 5 TMG.</p>
-       
+
+    <!-- Impressum -->
+    <div class="impressum-container">
+        <h2>Impressum</h2>
+        <p><strong>Angaben gemäß § 5 TMG</strong></p>
+        <p>Janik Schwarzenberger, Christian Straub, Tim Ludwig, Frank Penning<br>
+            Fallenbrunnen 2<br>
+            88045 Friedrichshafen<br>
+        </p>
+
+        <p><strong>Kontakt</strong></p>
+        <p>E-Mail: schwarzenberge-it23@it.dhbw-ravensburg.de</p>
+
+        <p><strong>Haftungsausschluss</strong></p>
+        <p>Dieses Studentenprojekt dient ausschließlich zu Lernzwecken. Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links. Für den Inhalt der verlinkten Seiten sind ausschließlich deren Betreiber verantwortlich.</p>
+
+        <p><strong>Hinweis</strong></p>
+        <p>Da es sich um ein nicht-kommerzielles Projekt handelt, sind wir gemäß § 19 UStG von der Umsatzsteuer befreit.</p>
+    </div>
 </body>
 </html>
