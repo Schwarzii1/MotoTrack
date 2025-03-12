@@ -1,11 +1,18 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
+    <!-- Zeichensatz und Viewport-Einstellungen für responsives Design -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Titel der Webseite -->
     <title>Live Tracking Map mit OpenStreetMap</title>
+
+    <!-- Einbindung der Leaflet CSS-Bibliothek für Karten -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
     <style>
+        /* Grundlegendes Styling für die Seite */
         body {
             font-family: 'Arial', sans-serif;
             background-color: #f0f0f0;
@@ -17,6 +24,7 @@
             align-items: center;
         }
 
+        /* Überschrift der Seite */
         h1 {
             color: #4CAF50;
             font-size: 2rem;
@@ -25,6 +33,7 @@
             margin: 0;
         }
 
+        /* Styling für die Karte */
         #map {
             height: 500px;
             width: 90%;
@@ -34,6 +43,7 @@
             box-shadow: 0 6px 15px rgba(0, 255, 0, 0.3);
         }
 
+        /* Container für die Info-Karten */
         .container {
             display: flex;
             justify-content: space-around;
@@ -44,6 +54,7 @@
             max-width: 1200px;
         }
 
+        /* Styling der Info-Karten */
         .card {
             background-color: #fff;
             padding: 20px;
@@ -55,6 +66,7 @@
             margin: 10px;
         }
 
+        /* Styling für Überschriften in den Karten */
         .card h3 {
             font-size: 1.5rem;
             color: #4CAF50;
@@ -62,6 +74,7 @@
             text-align: center;
         }
 
+        /* Styling für die Texte in den Karten */
         .card p {
             font-size: 1rem;
             color: #666;
@@ -72,6 +85,7 @@
             margin: 30px 0;
         }
 
+        /* Styling für Auswahlfelder und Buttons */
         select, button {
             padding: 12px;
             font-size: 16px;
@@ -84,6 +98,7 @@
             transition: background-color 0.3s;
         }
 
+        /* Hover-Effekt für Buttons und Auswahlfelder */
         select:hover, button:hover {
             background-color: #45a049;
         }
@@ -94,7 +109,7 @@
             color: #333;
         }
 
-        /* Styling für den Impressum-Teil */
+        /* Styling für das Impressum */
         .impressum-container {
             background-color: #fff;
             padding: 30px;
@@ -124,15 +139,19 @@
     </style>
 </head>
 <body>
+    <!-- Hauptüberschrift der Seite -->
     <h1>Live Tracking Map</h1>
 
+    <!-- Dropdown zur Auswahl einer Fahrt -->
     <label for="fahrtSelect">Wähle eine Fahrt:</label>
     <select id="fahrtSelect">
         <option value="">Lade Fahrten...</option>
     </select>
 
+    <!-- Karte -->
     <div id="map"></div>
 
+    <!-- Container für die Infokarten (Position, Beschleunigung, Neigung) -->
     <div class="container">
         <div class="card">
             <h3>Position</h3>
@@ -153,12 +172,14 @@
         </div>
     </div>
 
+    <!-- Einbindung der Leaflet JavaScript-Bibliothek -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
         let map, marker, polyline;
         let currentFahrtID = null;
         let lastTimestamp = null;
 
+        /* Funktion zum Abrufen der verfügbaren Fahrten */
         async function fetchFahrten() {
             try {
                 const response = await fetch("http://135.236.212.233:80/get_fahrten");
@@ -176,6 +197,7 @@
             }
         }
 
+        /* Funktion zum Abrufen und Aktualisieren der Messpunkte */
         async function fetchMesspunkte() {
             if (!currentFahrtID) return;
             let url = `http://135.236.212.233:80/get_messpunkte/${currentFahrtID}`;
@@ -195,6 +217,7 @@
             }
         }
 
+        /* Funktion zur Aktualisierung der Karte */
         function updateMap(messpunkte) {
             messpunkte.forEach(messpunkt => {
                 if (messpunkt.Breitengrad && messpunkt.Längengrad) {
@@ -202,7 +225,7 @@
                     polyline.addLatLng(latlng);
                     marker.setLatLng(latlng);
                     map.setView(latlng, 13);
-                    
+
                     document.getElementById("latitude").textContent = messpunkt.Breitengrad.toFixed(6);
                     document.getElementById("longitude").textContent = messpunkt.Längengrad.toFixed(6);
                     document.getElementById("acc_x").textContent = messpunkt.BeschlX || "0.0";
@@ -215,6 +238,7 @@
             });
         }
 
+        /* Initialisierung der Karte */
         function initMap() {
             map = L.map('map').setView([48.7758, 9.1829], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -226,12 +250,14 @@
             polyline = L.polyline([], { color: 'blue' }).addTo(map);
         }
 
+        /* Event Listener für die Fahrtauswahl */
         document.getElementById("fahrtSelect").addEventListener("change", function() {
             currentFahrtID = this.value;
             lastTimestamp = null;
             polyline.setLatLngs([]);
         });
 
+        /* Initialisierung beim Laden der Seite */
         window.onload = function() {
             initMap();
             fetchFahrten();
