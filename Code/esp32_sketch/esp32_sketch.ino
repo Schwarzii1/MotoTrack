@@ -1,79 +1,81 @@
-#include <TinyGPS++.h>
-#include <Wire.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_MPU6050.h>
-#include <WiFi.h>
-#include <HTTPClient.h>
+#include <TinyGPS++.h>         // Bibliothek für GPS-Funktionen
+#include <Wire.h>              // Bibliothek für I2C-Kommunikation
+#include <Adafruit_Sensor.h>   // Allgemeine Sensor-Bibliothek
+#include <Adafruit_MPU6050.h>  // Bibliothek für den MPU6050 Sensor
+#include <WiFi.h>              // Bibliothek für WLAN-Funktionalität
+#include <HTTPClient.h>        // Bibliothek für HTTP-Kommunikation
 
-// Define GPS and MPU6050
-TinyGPSPlus gps;
-HardwareSerial gpsSerial(1); // Using Serial1 for GPS
-Adafruit_MPU6050 mpu;
+// GPS- und MPU6050-Instanzen erstellen
+TinyGPSPlus gps;                 // GPS-Objekt
+HardwareSerial gpsSerial(1);      // Serial1 für GPS-Kommunikation
+Adafruit_MPU6050 mpu;             // MPU6050 Sensor-Objekt
 
-// Wi-Fi credentials
-const char* ssid = "iPhoneJanik";
-const char* password = "12345678AA";
+// WLAN-Zugangsdaten
+const char* ssid = "iPhoneJanik";       // WLAN-Name (SSID)
+const char* password = "12345678AA";    // WLAN-Passwort
 
-// Azure server URL
+// URL des Servers (Azure VM)
 const char* serverURL = "http://135.236.212.233:80/data";
 
 void setup() {
-  Serial.begin(115200);
-  gpsSerial.begin(9600, SERIAL_8N1, 13, 15); // RX, TX pins for GPS
+  Serial.begin(115200);   // Serielle Kommunikation starten
+  gpsSerial.begin(9600, SERIAL_8N1, 13, 15); // GPS-Modul über Serial1 an Pins 13 (RX) und 15 (TX) anschließen
 
-  // Initialize MPU6050
+  // MPU6050 initialisieren
   if (!mpu.begin()) {
-    Serial.println("Failed to find MPU6050 chip");
-    while (1);
+    Serial.println("MPU6050 nicht gefunden!"); 
+    while (1); // Programm stoppen, falls Sensor nicht erkannt wird
   }
 
-  Serial.println("MPU6050 Found!");
+  Serial.println("MPU6050 erfolgreich initialisiert!");
 
-  // Connect to Wi-Fi
-  Serial.print("Connecting to Wi-Fi...");
+  // Verbindung zum WLAN herstellen
+  Serial.print("Verbinde mit WLAN...");
   WiFi.begin(ssid, password);
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {  // Increase attempts
+  while (WiFi.status() != WL_CONNECTED && attempts < 30) {  // Max. 30 Versuche
     delay(1000);
     Serial.print(".");
     attempts++;
   }
 
+  // Überprüfung der WLAN-Verbindung
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("Connected to Wi-Fi");
-    Serial.print("IP Address: ");
+    Serial.println("Verbunden mit WLAN!");
+    Serial.print("IP-Adresse: ");
     Serial.println(WiFi.localIP());
   } else {
-    Serial.println("Wi-Fi connection failed");
-    Serial.print("Wi-Fi Status: ");
-    Serial.println(WiFi.status()); // Show status code
-    while (1); // Halt the program if no connection
+    Serial.println("WLAN-Verbindung fehlgeschlagen!");
+    Serial.print("WLAN-Status: ");
+    Serial.println(WiFi.status()); // Zeigt den Status-Code für Fehleranalyse an
+    while (1); // Stoppt das Programm, falls keine Verbindung hergestellt werden kann
   }
 }
 
 void loop() {
-  Serial.println("In loop...");
-  
-  // Read GPS data
+  Serial.println("Starte Loop-Durchlauf...");
+
+  // GPS-Daten lesen
   while (gpsSerial.available() > 0) {
-    gps.encode(gpsSerial.read());
+    gps.encode(gpsSerial.read());  // GPS-Daten dekodieren
   }
 
+  // Falls neue GPS-Daten vorhanden sind, auf die serielle Konsole ausgeben
   if (gps.location.isUpdated()) {
-    Serial.println("GPS data updated");
-    Serial.print("Latitude: ");
+    Serial.println("Neue GPS-Daten empfangen!");
+    Serial.print("Breitengrad: ");
     Serial.println(gps.location.lat(), 6);
-    Serial.print("Longitude: ");
+    Serial.print("Längengrad: ");
     Serial.println(gps.location.lng(), 6);
-    Serial.print("Speed: ");
+    Serial.print("Geschwindigkeit: ");
     Serial.println(gps.speed.kmph());
   }
 
-  // Get MPU6050 data
+  // Sensordaten des MPU6050 auslesen
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
 
-  // Prepare JSON payload
+  // JSON-Datenstring für die Serverübertragung erstellen
   String payload = "{";
   payload += "\"latitude\": " + String(gps.location.lat(), 6) + ", ";
   payload += "\"longitude\": " + String(gps.location.lng(), 6) + ", ";
@@ -86,30 +88,30 @@ void loop() {
   payload += "\"gyroscope_z\": " + String(g.gyro.z);
   payload += "}";
 
-  // Send data to Azure VM
+  // Prüfen, ob WLAN verbunden ist, bevor Daten gesendet werden
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
-    http.begin(serverURL);
-    http.addHeader("Content-Type", "application/json");
+    http.begin(serverURL);                   // Verbindung zum Server herstellen
+    http.addHeader("Content-Type", "application/json"); // Header für JSON setzen
 
-    // Send POST request
+    // HTTP-POST-Anfrage mit den Sensordaten senden
     int httpResponseCode = http.POST(payload);
-    Serial.print("HTTP Response Code: ");
+    Serial.print("HTTP-Antwortcode: ");
     Serial.println(httpResponseCode);
 
-    // Check the HTTP response code
+    // Serverantwort ausgeben, falls die Übertragung erfolgreich war
     if (httpResponseCode > 0) {
-      Serial.println("Data sent successfully");
-      String response = http.getString();  // Get the server response
-      Serial.println("Server response: " + response);
+      Serial.println("Daten erfolgreich gesendet!");
+      String response = http.getString();  // Serverantwort abrufen
+      Serial.println("Serverantwort: " + response);
     } else {
-      Serial.println("Error in sending data. HTTP Response Code: " + String(httpResponseCode));
+      Serial.println("Fehler beim Senden der Daten. HTTP Code: " + String(httpResponseCode));
     }
 
-    http.end();
+    http.end(); // Verbindung schließen
   } else {
-    Serial.println("Wi-Fi not connected");
+    Serial.println("WLAN nicht verbunden, Daten werden nicht gesendet.");
   }
 
-  delay(1000); // Delay between data sends
+  delay(1000); // Eine Sekunde warten, bevor die nächsten Daten gesendet werden (sollte theoretisch auch in kürzeren Intervallen möglich sein)
 }
