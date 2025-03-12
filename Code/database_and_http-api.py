@@ -1,22 +1,24 @@
-import sqlite3
-import os
-from flask import Flask, request, jsonify, render_template
-from datetime import datetime
-from flask_cors import CORS
+import sqlite3  # SQLite-Datenbankmodul
+import os  # Für Dateioperationen
+from flask import Flask, request, jsonify, render_template  # Flask-Webframework
+from datetime import datetime  # Für Zeitstempel
+from flask_cors import CORS  # Ermöglicht API-Zugriffe von anderen Domains
 
 # Datenbank-Datei
 DB_FILE = "fahrten.db"
 
 # Flask-App initialisieren
 app = Flask(__name__)
-CORS(app)  # Erlaubt API-Zugriffe von anderen Domains
+CORS(app)  # Cross-Origin Resource Sharing aktivieren, erlaubt API-Zugriffe von anderen Domains
 
-# Datenbank erstellen, falls nicht vorhanden
 def init_db():
+    """
+    Erstellt die SQLite-Datenbank und die erforderlichen Tabellen, falls sie nicht existieren.
+    """
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Tabelle Fahrt
+    # Tabelle für Fahrten
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS Fahrt (
             FahrtID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,7 +26,7 @@ def init_db():
         )
     ''')
 
-    # Tabelle Messpunkt
+    # Tabelle für Messpunkte mit Verweis auf die Fahrt-Tabelle
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS Messpunkt (
             MesspunktID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,9 +48,12 @@ def init_db():
     conn.commit()
     conn.close()
 
-# API-Route zum Hinzufügen einer Fahrt
+# API-Route zum Hinzufügen einer neuen Fahrt
 @app.route("/add_fahrt", methods=["POST"])
 def add_fahrt():
+    """
+    Fügt eine neue Fahrt in die Datenbank ein.
+    """
     data = request.get_json()
     fahrt_name = data.get("FahrtName")
 
@@ -59,17 +64,20 @@ def add_fahrt():
     cursor = conn.cursor()
     cursor.execute("INSERT INTO Fahrt (FahrtName) VALUES (?)", (fahrt_name,))
     conn.commit()
-    fahrt_id = cursor.lastrowid
+    fahrt_id = cursor.lastrowid  # ID der neu erstellten Fahrt abrufen
     conn.close()
 
     return jsonify({"message": "Fahrt hinzugefügt", "FahrtID": fahrt_id})
 
-# API-Route zum Hinzufügen eines Messpunkts
+# API-Endpunkt zum Hinzufügen eines Messpunkts
 @app.route("/add_messpunkt", methods=["POST"])
 def add_messpunkt():
+    """
+    Fügt einen neuen Messpunkt in die Datenbank ein.
+    """
     data = request.get_json()
     
-    # Pflichtfelder
+    # Überprüfen, ob alle erforderlichen Felder vorhanden sind
     required_fields = ["Zeitpunkt", "Beschleunigung", "FahrtID"]
     if not all(field in data for field in required_fields):
         return jsonify({"error": "Fehlende Pflichtfelder"}), 400
@@ -97,15 +105,17 @@ def add_messpunkt():
     ''', (zeitpunkt, beschleunigung, fahrt_id, längengrad, breitengrad, neigung_x, neigung_y, neigung_z, beschl_x, beschl_y, beschl_z))
     
     conn.commit()
-    messpunkt_id = cursor.lastrowid
+    messpunkt_id = cursor.lastrowid  # ID des neuen Messpunkts abrufen
     conn.close()
 
     return jsonify({"message": "Messpunkt hinzugefügt", "MesspunktID": messpunkt_id})
 
+# API-Endpunkt zum Abrufen aller Fahrten
 @app.route('/get_fahrten', methods=['GET'])
 def get_fahrten():
-    # Verbindung zur Datenbank herstellen
-    
+    """
+    Ruft alle Fahrten aus der Datenbank ab und gibt sie als JSON zurück.
+    """
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
@@ -125,18 +135,21 @@ def get_fahrten():
 
     return jsonify(fahrten_list)
 
-# API-Route zum Abrufen von Messpunkten einer bestimmten Fahrt nach einer Uhrzeit
+# API-Endpunkt zum Abrufen der Messpunkte einer bestimmten Fahrt
 @app.route("/get_messpunkte/<int:fahrt_id>", methods=["GET"])
 def get_messpunkte(fahrt_id):
+    """
+    Ruft alle Messpunkte einer bestimmten Fahrt ab, optional nach einer bestimmten Uhrzeit.
+    """
     after = request.args.get("after")  # Optionaler Parameter
-
+    
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
     if after:
         try:
             # Prüfen, ob das Datum gültig ist
-            datetime.strptime(after, "%Y-%m-%d %H:%M:%S")
+            datetime.strptime(after, "%Y-%m-%d %H:%M:%S")  # Prüfen, ob das Datum gültig ist
         except ValueError:
             return jsonify({"error": "Ungültiges Zeitformat, erwarte 'YYYY-MM-DD HH:MM:SS'"}), 400
 
@@ -172,12 +185,12 @@ def get_messpunkte(fahrt_id):
 
     return jsonify(messpunkte_list)
 
-# API-Route für die Webseite
+# Haupt-Webseite rendern
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# Server starten
+# Flask-Server starten
 if __name__ == "__main__":
-    init_db()
+    init_db()  # Datenbank initialisieren
     app.run(host="0.0.0.0", port=80)
