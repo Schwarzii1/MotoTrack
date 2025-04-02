@@ -1,117 +1,170 @@
-#include <TinyGPS++.h>         // Bibliothek für GPS-Funktionen
-#include <Wire.h>              // Bibliothek für I2C-Kommunikation
-#include <Adafruit_Sensor.h>   // Allgemeine Sensor-Bibliothek
-#include <Adafruit_MPU6050.h>  // Bibliothek für den MPU6050 Sensor
-#include <WiFi.h>              // Bibliothek für WLAN-Funktionalität
-#include <HTTPClient.h>        // Bibliothek für HTTP-Kommunikation
+#include <TinyGPS++.h>
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_MPU6050.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <LiquidCrystal_I2C.h>
+#include <deque>
 
-// GPS- und MPU6050-Instanzen erstellen
-TinyGPSPlus gps;                 // GPS-Objekt
-HardwareSerial gpsSerial(1);      // Serial1 für GPS-Kommunikation
-Adafruit_MPU6050 mpu;             // MPU6050 Sensor-Objekt
+#define BUTTON_UP 12
+#define BUTTON_DOWN 14
+#define BUTTON_SELECT 27
+#define BUTTON_BACK 26
+#define BUTTON_ENTER 25
 
-// WLAN-Zugangsdaten
-const char* ssid = "iPhoneJanik";       // WLAN-Name (SSID)
-const char* password = "12345678AA";    // WLAN-Passwort
+TinyGPSPlus gps;
+HardwareSerial gpsSerial(1);
+Adafruit_MPU6050 mpu;
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-// URL des Servers (Azure VM)
+String availableNetworks[20];
+int networkCount = 0;
+int selectedNetwork = 0;
+String enteredPassword = "";
+bool passwordEntryMode = false;
+bool connected = false;
+int alphabetIndex = 0;
+const String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
 const char* serverURL = "http://135.236.212.233:80/data";
+std::deque<String> dataBuffer;
+
+unsigned long lastButtonPress = 0;
 
 void setup() {
-  Serial.begin(115200);   // Serielle Kommunikation starten
-  gpsSerial.begin(9600, SERIAL_8N1, 13, 15); // GPS-Modul über Serial1 an Pins 13 (RX) und 15 (TX) anschließen
+  Serial.begin(115200);
+  gpsSerial.begin(9600, SERIAL_8N1, 13, 15);
 
-  // MPU6050 initialisieren
+  pinMode(BUTTON_UP, INPUT_PULLUP);
+  pinMode(BUTTON_DOWN, INPUT_PULLUP);
+  pinMode(BUTTON_SELECT, INPUT_PULLUP);
+  pinMode(BUTTON_BACK, INPUT_PULLUP);
+  pinMode(BUTTON_ENTER, INPUT_PULLUP);
+
+  lcd.init();
+  lcd.backlight();
+
   if (!mpu.begin()) {
-    Serial.println("MPU6050 nicht gefunden!"); 
-    while (1); // Programm stoppen, falls Sensor nicht erkannt wird
+    lcd.print("MPU6050 Error");
+    while (1);
   }
 
-  Serial.println("MPU6050 erfolgreich initialisiert!");
+  lcd.clear();
+  lcd.print("Scanning WiFi...");
+  networkCount = WiFi.scanNetworks();
+  networkCount = min(networkCount, 20);  // Prevent buffer overflow
 
-  // Verbindung zum WLAN herstellen
-  Serial.print("Verbinde mit WLAN...");
-  WiFi.begin(ssid, password);
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {  // Max. 30 Versuche
-    delay(1000);
-    Serial.print(".");
-    attempts++;
+  for (int i = 0; i < networkCount; i++) {
+    availableNetworks[i] = WiFi.SSID(i);
   }
 
-  // Überprüfung der WLAN-Verbindung
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("Verbunden mit WLAN!");
-    Serial.print("IP-Adresse: ");
-    Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("WLAN-Verbindung fehlgeschlagen!");
-    Serial.print("WLAN-Status: ");
-    Serial.println(WiFi.status()); // Zeigt den Status-Code für Fehleranalyse an
-    while (1); // Stoppt das Programm, falls keine Verbindung hergestellt werden kann
-  }
+  lcd.clear();
 }
 
 void loop() {
-  Serial.println("Starte Loop-Durchlauf...");
+  if (!connected) {
+    handleMenu();
+  } else {
+    collectAndSendData();
+  }
+}
 
-  // GPS-Daten lesen
-  while (gpsSerial.available() > 0) {
-    gps.encode(gpsSerial.read());  // GPS-Daten dekodieren
+bool isButtonPressed(int pin) {
+  if (digitalRead(pin) == LOW && millis() - lastButtonPress > 200) {
+    lastButtonPress = millis();
+    return true;
+  }
+  return false;
+}
+
+void handleMenu() {
+  lcd.clear();
+  lcd.print(availableNetworks[selectedNetwork].substring(0, 16));
+
+  if (isButtonPressed(BUTTON_UP)) {
+    selectedNetwork = (selectedNetwork - 1 + networkCount) % networkCount;
   }
 
-  // Falls neue GPS-Daten vorhanden sind, auf die serielle Konsole ausgeben
-  if (gps.location.isUpdated()) {
-    Serial.println("Neue GPS-Daten empfangen!");
-    Serial.print("Breitengrad: ");
-    Serial.println(gps.location.lat(), 6);
-    Serial.print("Längengrad: ");
-    Serial.println(gps.location.lng(), 6);
-    Serial.print("Geschwindigkeit: ");
-    Serial.println(gps.speed.kmph());
+  if (isButtonPressed(BUTTON_DOWN)) {
+    selectedNetwork = (selectedNetwork + 1) % networkCount;
   }
 
-  // Sensordaten des MPU6050 auslesen
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
+  if (isButtonPressed(BUTTON_SELECT)) {
+    lcd.clear();
+    lcd.print("Enter Password:");
+    enteredPassword = "";
+    passwordEntryMode = true;
+    alphabetIndex = 0;
 
-  // JSON-Datenstring für die Serverübertragung erstellen
-  String payload = "{";
-  payload += "\"latitude\": " + String(gps.location.lat(), 6) + ", ";
-  payload += "\"longitude\": " + String(gps.location.lng(), 6) + ", ";
-  payload += "\"speed\": " + String(gps.speed.kmph()) + ", ";
-  payload += "\"acceleration_x\": " + String(a.acceleration.x) + ", ";
-  payload += "\"acceleration_y\": " + String(a.acceleration.y) + ", ";
-  payload += "\"acceleration_z\": " + String(a.acceleration.z) + ", ";
-  payload += "\"gyroscope_x\": " + String(g.gyro.x) + ", ";
-  payload += "\"gyroscope_y\": " + String(g.gyro.y) + ", ";
-  payload += "\"gyroscope_z\": " + String(g.gyro.z);
-  payload += "}";
+    while (passwordEntryMode) {
+      lcd.clear();
+      lcd.print("Password:");
+      lcd.setCursor(0, 1);
+      lcd.print(enteredPassword + "_" + alphabet[alphabetIndex]);
 
-  // Prüfen, ob WLAN verbunden ist, bevor Daten gesendet werden
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    http.begin(serverURL);                   // Verbindung zum Server herstellen
-    http.addHeader("Content-Type", "application/json"); // Header für JSON setzen
-
-    // HTTP-POST-Anfrage mit den Sensordaten senden
-    int httpResponseCode = http.POST(payload);
-    Serial.print("HTTP-Antwortcode: ");
-    Serial.println(httpResponseCode);
-
-    // Serverantwort ausgeben, falls die Übertragung erfolgreich war
-    if (httpResponseCode > 0) {
-      Serial.println("Daten erfolgreich gesendet!");
-      String response = http.getString();  // Serverantwort abrufen
-      Serial.println("Serverantwort: " + response);
-    } else {
-      Serial.println("Fehler beim Senden der Daten. HTTP Code: " + String(httpResponseCode));
+      if (isButtonPressed(BUTTON_UP)) alphabetIndex = (alphabetIndex + 1) % alphabet.length();
+      if (isButtonPressed(BUTTON_DOWN)) alphabetIndex = (alphabetIndex - 1 + alphabet.length()) % alphabet.length();
+      if (isButtonPressed(BUTTON_SELECT)) enteredPassword += alphabet[alphabetIndex];
+      if (isButtonPressed(BUTTON_BACK) && enteredPassword.length() > 0) enteredPassword.remove(enteredPassword.length() - 1);
+      if (isButtonPressed(BUTTON_ENTER)) passwordEntryMode = false;
     }
 
-    http.end(); // Verbindung schließen
-  } else {
-    Serial.println("WLAN nicht verbunden, Daten werden nicht gesendet.");
+    WiFi.begin(availableNetworks[selectedNetwork].c_str(), enteredPassword.c_str());
+    lcd.clear();
+    lcd.print("Connecting...");
+
+    for (int i = 0; i < 30 && WiFi.status() != WL_CONNECTED; i++) {
+      delay(500);
+      lcd.print(".");
+    }
+
+    connected = (WiFi.status() == WL_CONNECTED);
+    lcd.clear();
+    lcd.print(connected ? "Connected!" : "Failed to Connect");
+    delay(1000);
+  }
+}
+
+void collectAndSendData() {
+  while (gpsSerial.available() > 0) {
+    gps.encode(gpsSerial.read());
   }
 
-  delay(1000); // Eine Sekunde warten, bevor die nächsten Daten gesendet werden (sollte theoretisch auch in kürzeren Intervallen möglich sein)
+  if (gps.location.isValid() && gps.location.isUpdated()) {
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+    String timestamp = String(millis());
+
+    String payload = "{";
+    payload += "\"timestamp\": " + timestamp + ", ";
+    payload += "\"latitude\": " + String(gps.location.lat(), 6) + ", ";
+    payload += "\"longitude\": " + String(gps.location.lng(), 6) + ", ";
+    payload += "\"speed\": " + String(gps.speed.kmph()) + ", ";
+    payload += "\"acceleration_x\": " + String(a.acceleration.x) + ", ";
+    payload += "\"acceleration_y\": " + String(a.acceleration.y) + ", ";
+    payload += "\"acceleration_z\": " + String(a.acceleration.z) + ", ";
+    payload += "\"gyroscope_x\": " + String(g.gyro.x) + ", ";
+    payload += "\"gyroscope_y\": " + String(g.gyro.y) + ", ";
+    payload += "\"gyroscope_z\": " + String(g.gyro.z) + "}";
+
+    if (WiFi.status() == WL_CONNECTED) {
+      HTTPClient http;
+      http.begin(serverURL);
+      http.addHeader("Content-Type", "application/json");
+      int httpResponseCode = http.POST(payload);
+      http.end();
+
+      while (!dataBuffer.empty()) {
+        http.begin(serverURL);
+        http.addHeader("Content-Type", "application/json");
+        http.POST(dataBuffer.front());
+        dataBuffer.pop_front();
+        http.end();
+      }
+    } else {
+      dataBuffer.push_back(payload);  // Save data when offline
+    }
+  }
+  delay(1000);
 }
